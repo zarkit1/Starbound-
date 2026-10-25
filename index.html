@@ -68,7 +68,7 @@
    state=win?'won':'lost';overlay.classList.remove('hidden');startBtn.textContent=win?'PLAY AGAIN':'RETRY MISSION';
    title.innerHTML=win?'EARTH ACQUIRED!':'SHIP LOST';
    message.innerHTML=win
-    ?'MISSION COMPLETE! After 30 seconds in the deep, you have reached <b>Verdantia</b> — a blue, cloud-covered, Earth-like planet. Touchdown confirmed, pilot!'
+    ?'MISSION COMPLETE! After 30 seconds in the deep, you have reached <b>Exoplanet M</b> — a blue, cloud-covered, Earth-like planet. Touchdown confirmed, pilot!'
     :`Your ship hit a cosmic hazard after <b>${formatTime(elapsed)}</b>. The Earth-like planet is still out there. Refuel your courage and try again!`;
  }
  function formatTime(t){let n=Math.floor(t);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
