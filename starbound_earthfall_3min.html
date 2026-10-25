@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STARBOUND: Earthfall</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:#070914;color:#f4f2ff;font-family:"Courier New",monospace}
+  body{display:grid;place-items:center;padding:14px}
+  .shell{width:min(100%,780px)}
+  header{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:0 0 10px}
+  .logo{font-weight:900;font-size:clamp(20px,4vw,31px);letter-spacing:2px;text-shadow:3px 3px #6238b5}
+  .logo b{color:#7df9ff}
+  .subtitle{font-size:10px;color:#9ea8d6;letter-spacing:2px;text-align:right}
+  .frame{position:relative;border:4px solid #a9b8ff;background:#090e2a;box-shadow:0 0 0 4px #30295d,0 0 30px #4b50c855;overflow:hidden}
+  canvas{display:block;width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:manipulation;cursor:pointer}
+  .hud{position:absolute;left:10px;right:10px;top:9px;display:flex;justify-content:space-between;gap:8px;font-size:clamp(10px,2vw,14px);text-shadow:2px 2px #000;pointer-events:none}
+  .hud span{background:#070a22cc;border:2px solid #7583c7;padding:5px 7px}
+  .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:#050817b8}
+  .panel{width:min(100%,390px);background:#10183b;border:4px solid #9caaff;box-shadow:8px 8px #050817;padding:20px;text-align:center}
+  .pixelplanet{font-size:35px;letter-spacing:3px}
+  h1{font-size:clamp(22px,5vw,35px);line-height:1.05;margin:12px 0;color:#8af8ff;text-shadow:3px 3px #4e3ca6}
+  p{font-size:12px;line-height:1.7;color:#d5d9ff}
+  button{font: bold 14px "Courier New",monospace;letter-spacing:1px;background:#a0ffb4;color:#10132d;border:0;border-bottom:5px solid #418e73;padding:13px 18px;cursor:pointer}
+  button:active{transform:translateY(2px);border-bottom-width:3px}
+  .small{font-size:10px;color:#a5afd9;margin-top:13px}
+  .hidden{display:none}
+  footer{font-size:10px;color:#8995c6;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="shell">
+<header><div class="logo">STAR<b>BOUND</b></div><div class="subtitle">8-BIT SPACE ODYSSEY<br>MISSION: EARTHFALL</div></header>
+<div class="frame">
+<canvas id="game" width="320" height="480" aria-label="Starbound game. Tap, click or press space to boost your spaceship. Survive five minutes to reach Earth."></canvas>
+<div class="hud"><span>TIME <b id="time">03:00</b></span><span>SECTOR <b id="sector">01</b></span><span>SCORE <b id="score">000</b></span></div>
+<div class="overlay" id="overlay"><div class="panel">
+<div class="pixelplanet">🚀 ✦ 🌎</div><h1 id="title">STARBOUND:<br>EARTHFALL</h1>
+<p id="message">Your home is far away. Pilot your tiny starship through asteroid fields, drifting space junk and cosmic hazards. Survive the full <b>3-minute mission</b> to reach a living, Earth-like world.</p>
+<button id="start">START MISSION</button>
+<div class="small">SPACE / ↑ / CLICK / TAP TO BOOST<br>AVOID EVERYTHING. REACH THE BLUE PLANET.</div>
+</div></div>
+</div>
+<footer><span>PIXEL PILOT // BUILD 08-BIT</span><span>3:00 MINUTE SURVIVAL MISSION</span></footer>
+</div>
+<script>
+(() => {
+ const c=document.getElementById('game'),x=c.getContext('2d');
+ const overlay=document.getElementById('overlay'),startBtn=document.getElementById('start');
+ const title=document.getElementById('title'),message=document.getElementById('message');
+ const timeEl=document.getElementById('time'),sectorEl=document.getElementById('sector'),scoreEl=document.getElementById('score');
+ const W=320,H=480,DURATION=180;
+ let state='ready',elapsed=0,score=0,last=0,spawn=0,obstacles=[],particles=[];
+ const ship={x:76,y:230,vy:0};
+ const stars=Array.from({length:65},()=>({x:Math.random()*W,y:Math.random()*H,s:Math.random()<.75?1:2,spd:12+Math.random()*38,bright:Math.random()}));
+ const rand=(a,b)=>a+Math.random()*(b-a);
+ function reset(){elapsed=0;score=0;spawn=.6;obstacles=[];particles=[];ship.y=230;ship.vy=0;updateHud();}
+ function updateHud(){
+   const left=Math.max(0,Math.ceil(DURATION-elapsed));
+   timeEl.textContent=String(Math.floor(left/60)).padStart(2,'0')+':'+String(left%60).padStart(2,'0');
+   sectorEl.textContent=String(Math.min(5,Math.floor(elapsed/60)+1)).padStart(2,'0');
+   scoreEl.textContent=String(score).padStart(3,'0');
+ }
+ function start(){reset();state='playing';overlay.classList.add('hidden');boost();}
+ function boost(){if(state!=='playing')return;ship.vy=-155;for(let i=0;i<4;i++)particles.push({x:ship.x-10,y:ship.y+rand(-4,5),vx:rand(-35,-8),vy:rand(-20,20),life:.35});}
+ function finish(win){
+   state=win?'won':'lost';overlay.classList.remove('hidden');startBtn.textContent=win?'PLAY AGAIN':'RETRY MISSION';
+   title.innerHTML=win?'EARTH ACQUIRED!':'SHIP LOST';
+   message.innerHTML=win
+    ?'MISSION COMPLETE! After five minutes in the deep, you have reached <b>Verdantia</b> — a blue, cloud-covered, Earth-like planet. Touchdown confirmed, pilot!'
+    :`Your ship hit a cosmic hazard after <b>${formatTime(elapsed)}</b>. The Earth-like planet is still out there. Refuel your courage and try again!`;
+ }
+ function formatTime(t){let n=Math.floor(t);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
+ function rect(a,b,w,h,col){x.fillStyle=col;x.fillRect(Math.round(a),Math.round(b),Math.round(w),Math.round(h))}
+ function drawSky(dt){
+   rect(0,0,W,H,'#080d2b');rect(0,0,W,105,'#0b1235');
+   // blocky nebula patches
+   for(let i=0;i<8;i++){let xx=(i*47+30)%W, yy=(i*71+65)%H;rect(xx,yy,18,7,i%2?'#18164c':'#171b50');rect(xx+5,yy-4,10,15,i%2?'#171b50':'#21174e')}
+   stars.forEach(s=>{s.x-=s.spd*dt;if(s.x<0){s.x=W;s.y=Math.random()*H}rect(s.x,s.y,s.s,s.s,s.bright>.6?'#ffffff':'#9eafff')});
+   // distant pixel planet
+   rect(253,85,18,4,'#d38bff');rect(247,89,30,5,'#b26cf2');rect(243,94,38,18,'#8e66d9');rect(247,112,30,6,'#604fb2');rect(254,98,7,5,'#e6b6ff');rect(264,105,7,4,'#6a4eb7');
+ }
+ function drawShip(){
+   const yy=Math.round(ship.y);
+   // engine flame flickers in chunky pixels
+   rect(ship.x-18,yy-3,7,7,'#ffb44c');rect(ship.x-23,yy-1,5,3,Math.random()>.5?'#fff29b':'#ff774e');
+   // wings and fuselage
+   rect(ship.x-10,yy-7,8,14,'#7886b8');rect(ship.x-5,yy-10,19,20,'#d7e6f7');
+   rect(ship.x+2,yy-7,13,14,'#f7fbff');rect(ship.x+7,yy-4,8,8,'#53e9ff');
+   rect(ship.x-3,yy-12,8,4,'#9caaff');rect(ship.x-3,yy+8,8,4,'#9caaff');
+   rect(ship.x+13,yy-2,4,4,'#ffffff');
+ }
+ function makeObstacle(){
+   const gap=Math.max(95,125-elapsed*.055), center=rand(90,H-90);
+   const type=Math.floor(rand(0,4));
+   obstacles.push({x:W+12,center,gap,type,w:type===0?24: type===1?28:26,passed:false,spin:rand(0,6)});
+ }
+ function drawMeteor(o){
+   let xx=Math.round(o.x), cy=Math.round(o.center), top=cy-o.gap/2,bot=cy+o.gap/2;
+   if(o.type===0){
+     // jagged asteroid clusters at top and bottom
+     for(let yy=0;yy<top;yy+=13){let shift=(Math.floor(yy/13)%2)*4;rect(xx+shift,yy,o.w-4,12,'#794a57');rect(xx+shift+4,yy+3,o.w-10,5,'#b86c69');rect(xx+shift+8,yy+5,4,3,'#e3a07a')}
+     for(let yy=bot;yy<H;yy+=13){let shift=(Math.floor(yy/13)%2)*4;rect(xx+shift,yy,o.w-4,12,'#794a57');rect(xx+shift+4,yy+3,o.w-10,5,'#b86c69');rect(xx+shift+8,yy+5,4,3,'#e3a07a')}
+   }else if(o.type===1){
+     // crystalline ice formations
+     for(let yy=0;yy<top;yy+=15){rect(xx+3,yy,19,15,'#317eaa');rect(xx+8,yy+3,8,8,'#70d8e8');rect(xx+3,yy+12,5,3,'#b5ffff')}
+     for(let yy=bot;yy<H;yy+=15){rect(xx+3,yy,19,15,'#317eaa');rect(xx+8,yy+3,8,8,'#70d8e8');rect(xx+3,yy+12,5,3,'#b5ffff')}
+   }else if(o.type===2){
+     // space debris and satellite panels
+     for(let yy=0;yy<top;yy+=18){rect(xx+6,yy,14,12,'#8589a8');rect(xx,yy+3,6,6,'#e4cc79');rect(xx+20,yy+3,6,6,'#e4cc79');rect(xx+9,yy+3,8,5,'#4d527b')}
+     for(let yy=bot;yy<H;yy+=18){rect(xx+6,yy,14,12,'#8589a8');rect(xx,yy+3,6,6,'#e4cc79');rect(xx+20,yy+3,6,6,'#e4cc79');rect(xx+9,yy+3,8,5,'#4d527b')}
+   }else{
+     // alien energy columns
+     for(let yy=0;yy<top;yy+=12){rect(xx+2,yy,22,11,'#6e49bc');rect(xx+6,yy+3,14,4,'#d38bff');rect(xx+10,yy+3,5,4,'#f5dcff')}
+     for(let yy=bot;yy<H;yy+=12){rect(xx+2,yy,22,11,'#6e49bc');rect(xx+6,yy+3,14,4,'#d38bff');rect(xx+10,yy+3,5,4,'#f5dcff')}
+   }
+   // warning sparkles around opening edges
+   rect(xx-4,top-3,4,4,'#fff2a8');rect(xx+o.w,bot+2,4,4,'#fff2a8');
+ }
+ function drawGoal(){
+   // Earth-like planet appears more and more as mission nears its end
+   const p=Math.max(0,(elapsed-260)/40);
+   if(p<=0)return;
+   const px=276,py=150,r=10+p*24;
+   // ring and pixel planet
+   rect(px-r-8,py+3,r*2+16,4,'#9e8cff');
+   rect(px-r,py-r,r*2,r*2,'#2875c9');
+   rect(px-r+4,py-r+4,r*2-8,r*2-8,'#4aa5f5');
+   rect(px-r+5,py-r+7,Math.max(4,r*.55),Math.max(4,r*.28),'#7be39b');
+   rect(px+3,py+2,Math.max(4,r*.45),Math.max(4,r*.3),'#63d88c');
+   rect(px-r+8,py-r+3,Math.max(4,r*.35),Math.max(3,r*.2),'#d6f6ff');
+   if(elapsed>285){x.fillStyle='#e6f7ff';x.font='8px Courier New';x.fillText('VERDANTIA',218,py+r+15)}
+ }
+ function draw(){
+   drawSky(0);
+   obstacles.forEach(drawMeteor);
+   drawGoal();
+   particles.forEach(p=>rect(p.x,p.y,2,2,'#ffc879'));
+   drawShip();
+   // subtle scanline overlay
+   for(let y=0;y<H;y+=4)rect(0,y,W,1,'#00000020');
+   if(state==='playing'&&elapsed<5){x.fillStyle='#d9e4ff';x.font='8px Courier New';x.fillText('SECTOR 01: DEEP SPACE',8,62)}
+ }
+ function update(dt){
+   if(state!=='playing')return;
+   elapsed+=dt;
+   ship.vy+=390*dt;ship.y+=ship.vy*dt;
+   spawn-=dt;
+   if(spawn<=0){makeObstacle();spawn=Math.max(.78,1.15-elapsed*.0008)}
+   const speed=91+elapsed*.11;
+   obstacles.forEach(o=>{
+     o.x-=speed*dt;
+     if(!o.passed&&o.x+o.w<ship.x){o.passed=true;score++;scoreEl.textContent=String(score).padStart(3,'0')}
+     const hitX=ship.x+12>o.x&&ship.x-17<o.x+o.w;
+     const top=o.center-o.gap/2,bottom=o.center+o.gap/2;
+     if(hitX&&(ship.y-10<top||ship.y+10>bottom))finish(false);
+   });
+   obstacles=obstacles.filter(o=>o.x+o.w>-10);
+   particles.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt});
+   particles=particles.filter(p=>p.life>0);
+   if(ship.y<12||ship.y>H-12)finish(false);
+   if(elapsed>=DURATION) {elapsed=DURATION;finish(true)}
+   updateHud();
+ }
+ function loop(t){const dt=Math.min((t-last)/1000||0,.03);last=t;update(dt);draw();requestAnimationFrame(loop)}
+ startBtn.addEventListener('click',start);
+ c.addEventListener('pointerdown',e=>{e.preventDefault();boost()});
+ window.addEventListener('keydown',e=>{if(['Space','ArrowUp'].includes(e.code)){e.preventDefault();if(state!=='playing'){if(state==='ready'||state==='lost'||state==='won')start()}else boost()}});
+ reset();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
